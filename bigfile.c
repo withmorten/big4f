@@ -182,7 +182,7 @@ BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *InputDir, char 
     FILE *f;
 
     // Realloc more memory for current Header + one more DirEntry and memory for new DirEntry struct
-    BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + ((sizeof(BIGDirectoryEntry)) * (BIGFile_Header->NumFiles + 1)));
+    BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + ((sizeof(BIGDirectoryEntry *)) * (BIGFile_Header->NumFiles + 1)));
     DirectoryEntry = malloc_d(sizeof(BIGDirectoryEntry));
 
     // Open found file to get filesize
@@ -322,7 +322,7 @@ BIGFileHeader_Parse(FILE *BIGFile_Handle)
     BIGFile_Header->HeaderEnd = __builtin_bswap32(BIGFile_Header->HeaderEnd);
 
     // realloc enough memory for all Files
-    BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (BIGFile_Header->NumFiles * sizeof(BIGDirectoryEntry)));
+    BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (BIGFile_Header->NumFiles * sizeof(BIGDirectoryEntry *)));
 
     // loop through DirEntry list in header and get data
     for(i = 0; i < BIGFile_Header->NumFiles; i++)
