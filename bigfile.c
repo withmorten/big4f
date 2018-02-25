@@ -46,7 +46,7 @@ BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
     ftruncate(fileno(BIGFile_Handle), BIGFile_Header->ArchiveSize);
 
     // Set initial LastPos for first DirEntry offset
-    BIGFile_Header_LastPos = BIGFile_Header->HeaderEnd;
+    BIGFile_Header_LastPos = sizeof(BIGHeader);
 
     // Loop through all DirEntries, read and write files into BIGFile, write Header
     for(i = 0; i < BIGFile_Header->NumFiles; i++)
