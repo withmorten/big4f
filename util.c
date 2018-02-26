@@ -118,8 +118,7 @@ strndup(const char *str, size_t size)
 {
     char *dup = NULL;
 
-    dup = malloc_d(size + 1);
-    dup[size] = '\0';
+    dup = calloc_d(1, size + 1);
 
     dup = memcpy(dup, str, size);
 
