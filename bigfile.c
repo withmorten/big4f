@@ -10,9 +10,10 @@ BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
     void *InputFile_Buffer = NULL;
     int i;
     int BIGFile_Header_LastPos;
+    int BIGFile_Header_AllocSize = 10000;
 
     // Initial malloc for header
-    BIGFile_Header = malloc_d(sizeof(BIGHeader));
+    BIGFile_Header = malloc_d(sizeof(BIGHeader) + (BIGFile_Header_AllocSize * sizeof(BIGDirectoryEntry *)));
 
     // Get format and set MagicHeader, byteswap because these values need to be BE
     if(BIGFormat == 'f')
@@ -30,7 +31,7 @@ BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
     BIGFile_Header->NumFiles = 0;
 
     // Get DirectoryEntries + some initial Header data
-    BIGFile_Header = BIGFileHeader_Create(BIGFile_Header, InputDir, InputDir);
+    BIGFile_Header = BIGFileHeader_Create(BIGFile_Header, InputDir, InputDir, BIGFile_Header_AllocSize);
 
     if(BIGFile_Header->NumFiles == 0)
     {
@@ -62,13 +63,14 @@ BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
         InputFile_Handle = fopen_d(unixify_path(InputFile_Path), "rb");
 
         // Read full Input File
-        InputFile_Buffer = realloc_d(InputFile_Buffer, DirectoryEntry->FileLength);
+        InputFile_Buffer = malloc_d(DirectoryEntry->FileLength);
         fread(InputFile_Buffer, DirectoryEntry->FileLength, 1, InputFile_Handle);
 
         // Seek to FileOffset in BIGFile and write data
         fseek(BIGFile_Handle, DirectoryEntry->FileOffset, SEEK_SET);
         fwrite(InputFile_Buffer, DirectoryEntry->FileLength, 1, BIGFile_Handle);
 
+        free(InputFile_Buffer);
         fclose(InputFile_Handle);
 
         // byteswap because these values need to be BE
@@ -96,7 +98,7 @@ BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 }
 
 BIGHeader *
-BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir)
+BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir, int AllocSize)
 {
 #ifdef _WIN32
 
@@ -131,10 +133,17 @@ BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir)
             if(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
             {
                 // Recursion
-                BIGFile_Header = BIGFileHeader_Create(BIGFile_Header, InputDir, SearchPath);
+                BIGFile_Header = BIGFileHeader_Create(BIGFile_Header, InputDir, SearchPath, AllocSize);
             }
             else
             {
+                // Check if the alloc'd memory is still big enough, if not allocate twice as much
+                if(BIGFile_Header->NumFiles == AllocSize)
+                {
+                    AllocSize *= 2;
+                    BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (AllocSize * sizeof(BIGDirectoryEntry *)));
+                }
+
                 // Found a file, let's add it to the Directory entries
                 BIGFile_Header = BIGFileHeader_AddDirectoryEntry(BIGFile_Header, InputDir, SearchPath);
             }
@@ -163,6 +172,13 @@ BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir)
 
         if(ent->fts_info & FTS_F)
         {
+            // Check if the alloc'd memory is still big enough, if not allocate twice as much
+            if(BIGFile_Header->NumFiles == AllocSize)
+            {
+                AllocSize *= 2;
+                BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (AllocSize * sizeof(BIGDirectoryEntry *)));
+            }
+
             // Found a file, let's add it to the Directory entries
             BIGFile_Header = BIGFileHeader_AddDirectoryEntry(BIGFile_Header, unixify_path(InputDir), unixify_path(ent->fts_path));
         }
@@ -181,8 +197,6 @@ BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *InputDir, char 
     int FilePath_Start, FilePath_Length;
     FILE *f;
 
-    // Realloc more memory for current Header + one more DirEntry and memory for new DirEntry struct
-    BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + ((sizeof(BIGDirectoryEntry *)) * (BIGFile_Header->NumFiles + 1)));
     DirectoryEntry = malloc_d(sizeof(BIGDirectoryEntry));
 
     // Open found file to get filesize
@@ -254,10 +268,12 @@ BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
         fseek(BIGFile_Handle, DirectoryEntry->FileOffset, SEEK_SET);
 
         // Read output file from BIGFile into Buffer, write from Buffer into output file
-        BIGFile_Buffer = realloc_d(BIGFile_Buffer, DirectoryEntry->FileLength);
-        fread(BIGFile_Buffer, DirectoryEntry->FileLength, 1, BIGFile_Handle);
+        BIGFile_Buffer = malloc_d(DirectoryEntry->FileLength);
 
+        fread(BIGFile_Buffer, DirectoryEntry->FileLength, 1, BIGFile_Handle);
         fwrite(BIGFile_Buffer, DirectoryEntry->FileLength, 1, ExtractFile_Handle);
+
+        free(BIGFile_Buffer);
         fclose(ExtractFile_Handle);
 
         printf("%s\n", DirectoryEntry->FilePath);

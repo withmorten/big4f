@@ -67,7 +67,7 @@ void mkdir_d(const char *path);
 
 // bigfile.c
 void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat);
-BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir);
+BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir, int AllocSize);
 BIGHeader *BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *InputDir, char *FullFilePath);
 
 void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath);
