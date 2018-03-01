@@ -30,7 +30,7 @@ Please create an issue if you encounter problems with this tool. I've tested it 
 
 Windows users can download the latest version from the releases page:
 
-[https://github.com/withmorten/big4f/releases](https://github.com/withmorten/big4f/releases)
+https://github.com/withmorten/big4f/releases
 
 The Windows version was compiled with:
 
@@ -46,5 +46,5 @@ Please let me know if there are any problems doing this. I've used gcc 7.2.0 to 
 
 These two sites were used as reference of the BIG file format:
 
-[http://wiki.xentax.com/index.php/EA\_BIG\_BIGF\_Archive](http://wiki.xentax.com/index.php/EA_BIG_BIGF_Archive)
-[http://wiki.xentax.com/index.php/EA\_VIV\_BIG4](http://wiki.xentax.com/index.php/EA_VIV_BIG4)
+http://wiki.xentax.com/index.php/EA_BIG_BIGF_Archive
+http://wiki.xentax.com/index.php/EA_VIV_BIG4
