@@ -94,6 +94,7 @@ BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
     fseek(BIGFile_Handle, 0, SEEK_SET);
     fwrite(BIGFile_Header, sizeof(BIGHeader), 1, BIGFile_Handle);
 
+    // Close BIGFile, done
     fclose(BIGFile_Handle);
 }
 
@@ -169,7 +170,6 @@ BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir,
     {
         // No errno checking because fts_read adds random backslashes into pathnames, resulting in "No such dir"
         // fopen() will fail later on if the file cannot actually be opened and the program will exit
-
         if(ent->fts_info & FTS_F)
         {
             // Check if the alloc'd memory is still big enough, if not allocate twice as much
@@ -246,7 +246,7 @@ BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
     char ExtractPath_Actual[PATH_MAX_WIN];
     int i;
 
-    // Open BIGFile and get Size
+    // Open BIGFile
     BIGFile_Handle = fopen_d(BIGFile_Path, "rb");
 
     // Get full Header from BIG file
@@ -279,6 +279,7 @@ BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
         printf("%s\n", DirectoryEntry->FilePath);
     }
 
+    // Close BIGFile, done
     fclose(BIGFile_Handle);
 }
 
@@ -295,7 +296,7 @@ BIGFileHeader_Parse(FILE *BIGFile_Handle)
     // Initial Header malloc
     BIGFile_Header = malloc_d(sizeof(BIGHeader));
 
-    // Read Header struct from BIGFile
+    // Read Header struct from BIGFile and get Size
     BIGFile_Size = fsize(BIGFile_Handle);
     fread(BIGFile_Header, sizeof(BIGHeader), 1, BIGFile_Handle);
 
@@ -337,7 +338,7 @@ BIGFileHeader_Parse(FILE *BIGFile_Handle)
     BIGFile_Header->NumFiles = __builtin_bswap32(BIGFile_Header->NumFiles);
     BIGFile_Header->HeaderEnd = __builtin_bswap32(BIGFile_Header->HeaderEnd);
 
-    // realloc enough memory for all Files
+    // realloc enough memory for all DirectoryEntries
     BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (BIGFile_Header->NumFiles * sizeof(BIGDirectoryEntry *)));
 
     // loop through DirEntry list in header and get data
