@@ -34,11 +34,11 @@ Windows users can download the latest version from the releases page:
 
 The Windows version was compiled with:
 
-    gcc -s -static -o big4f.exe main.c bigfile.c util.c
+    gcc -O2 -s -static -o big4f.exe main.c bigfile.c util.c
 
 Linux users can just compile it themselves with:
 
-    gcc -s -o big4f main.c bigfile.c util.c
+    gcc -O2 -s -o big4f main.c bigfile.c util.c
 
 Please let me know if there are any problems doing this. I've used gcc 7.2.0 to compile it.
 
