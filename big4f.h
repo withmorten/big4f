@@ -18,7 +18,7 @@
 #define PATH_MAX_WIN 260
 
 #define BIG4F_VERSION_MAJOR 0
-#define BIG4F_VERSION_MINOR 2
+#define BIG4F_VERSION_MINOR 3
 
 #define BIGF_MAGIC 0x42494746
 #define BIG4_MAGIC 0x42494734
@@ -50,7 +50,7 @@ struct BIGDirectoryEntry
 // util.c
 void printf_help_exit(void);
 void printf_error_exit(char *message, char *filename);
-FILE *fopen_d(const char *path, const char *mode);
+FILE *fopen_d(char *path, const char *mode);
 FILE *fopen_r(char *fullpath);
 int fsize(FILE *stream);
 void *malloc_d(size_t size);
@@ -61,14 +61,16 @@ char *strncpy_d(char *dest, const char *src, size_t n);
 char *fgets_c(char *str, int n, FILE *stream);
 char *unixify_path(char *path);
 char *windowsify_path(char *path);
+char *systemify_path(char *path);
 int mkdir_w(const char *path);
 int mkdir_p(const char *path);
-void mkdir_d(const char *path);
+void mkdir_d(char *path);
 
 // bigfile.c
 void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat);
 BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir, int AllocSize);
 BIGHeader *BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *InputDir, char *FullFilePath);
 
+void BIGFile_List(char *BIGFile_Path);
 void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath);
 BIGHeader *BIGFileHeader_Parse(FILE *BIGFile_Handle);

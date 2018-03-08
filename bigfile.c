@@ -237,6 +237,29 @@ BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *InputDir, char 
 }
 
 void
+BIGFile_List(char *BIGFile_Path)
+{
+    FILE *BIGFile_Handle;
+    BIGHeader *BIGFile_Header = NULL;
+    int i;
+
+    // Open BIGFile
+    BIGFile_Handle = fopen_d(BIGFile_Path, "rb");
+
+    // Get full Header from BIG file
+    BIGFile_Header = BIGFileHeader_Parse(BIGFile_Handle);
+
+    // Loop through DirEntry list and list files
+    for(i = 0; i < BIGFile_Header->NumFiles; i++)
+    {
+        printf("%s\n", BIGFile_Header->DirectoryEntry[i]->FilePath);
+    }
+
+    // Close BIGFile, done
+    fclose(BIGFile_Handle);
+}
+
+void
 BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
 {
     FILE *BIGFile_Handle, *ExtractFile_Handle;

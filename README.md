@@ -10,6 +10,10 @@ No external files or libraries beyond gcc via MINGW in MSYS2, or just a normal l
 
 The usage is simple:
 
+    big4f l bigfile.big
+
+lists the contents of `bigfile.big`.
+
     big4f x bigfile.big outdir
 
 extracts `bigfile.big` into `outdir`. As does using `e`, instead of `x`.

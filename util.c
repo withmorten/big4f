@@ -5,10 +5,11 @@ printf_help_exit(void)
 {
     printf("big4f v%i.%i by withmorten\n\n", BIG4F_VERSION_MAJOR, BIG4F_VERSION_MINOR);
     printf("big4f supports the following arguments:\n\n");
+    printf("big4f l <big file> to list a .big file's contents\n");
     printf("big4f e/x <big file> <directory> to extract a .big file\n");
     printf("big4f f/4 <directory> <big file> to pack a .big file\n\n");
     printf("'f' will create a BIGF file, '4' a BIG4 file\n\n");
-    printf("big4f's source and readme are available on https://github.com/withmorten/big4f\n");
+    printf("big4f's source and readme are available at https://github.com/withmorten/big4f\n");
     exit(1);
 }
 
@@ -20,15 +21,13 @@ printf_error_exit(char *message, char *filename)
 }
 
 FILE *
-fopen_d(const char *path, const char *mode)
+fopen_d(char *path, const char *mode)
 {
-    FILE *f;
-
-    f = fopen(path, mode);
+    FILE *f = fopen(path, mode);
 
     if(f == NULL)
     {
-        printf("Error: couldn't fopen() file %s, exiting\n", path);
+        printf("Error: couldn't fopen() file %s, exiting\n", systemify_path(path));
         exit(1);
     }
 
@@ -68,9 +67,7 @@ fsize(FILE *stream)
 void *
 malloc_d(size_t size)
 {
-    void *m;
-
-    m = malloc(size);
+    void *m = malloc(size);
 
     if(m == NULL && size != 0)
     {
@@ -84,9 +81,7 @@ malloc_d(size_t size)
 void *
 calloc_d(size_t nitems, size_t size)
 {
-    void *m;
-
-    m = calloc(nitems, size);
+    void *m = calloc(nitems, size);
 
     if(m == NULL && size != 0)
     {
@@ -100,9 +95,7 @@ calloc_d(size_t nitems, size_t size)
 void *
 realloc_d(void *ptr, size_t size)
 {
-    void *m;
-
-    m = realloc(ptr, size);
+    void *m = realloc(ptr, size);
 
     if(m == NULL && size != 0)
     {
@@ -116,13 +109,9 @@ realloc_d(void *ptr, size_t size)
 char *
 strndup(const char *str, size_t size)
 {
-    char *dup = NULL;
+    char *dup = calloc_d(1, size + 1);
 
-    dup = calloc_d(1, size + 1);
-
-    dup = memcpy(dup, str, size);
-
-    return dup;
+    return memcpy(dup, str, size);
 }
 
 char *
@@ -211,6 +200,16 @@ windowsify_path(char *path)
     return path;
 }
 
+char *
+systemify_path(char *path)
+{
+#ifdef _WIN32
+    return windowsify_path(path);
+#else
+    return unixify_path(path);
+#endif
+}
+
 int
 mkdir_w(const char *path)
 {
@@ -250,7 +249,8 @@ mkdir_p(const char *path)
 
             if(mkdir_w(_path) != 0)
             {
-                if(errno != EEXIST)
+                // Don't throw error if it's a drive
+                if(errno != EEXIST && (errno == EACCES && !strchr(_path, ':')))
                 {
                     return -1;
                 }
@@ -271,11 +271,11 @@ mkdir_p(const char *path)
 }
 
 void
-mkdir_d(const char *path)
+mkdir_d(char *path)
 {
     if(mkdir_p(path))
     {
-        printf("Error: Couldn't create directory %s, exiting\n", path);
+        printf("Error: Couldn't create directory %s, exiting\n", systemify_path(path));
         exit(1);
     }
 }
