@@ -33,18 +33,18 @@ typedef struct BIGDirectoryEntry BIGDirectoryEntry;
 
 struct BIGHeader
 {
-    uint32_t MagicHeader;
-    uint32_t ArchiveSize;
-    uint32_t NumFiles;
-    uint32_t HeaderEnd;
-    BIGDirectoryEntry *DirectoryEntry[];
+	uint32_t MagicHeader;
+	uint32_t ArchiveSize;
+	uint32_t NumFiles;
+	uint32_t HeaderEnd;
+	BIGDirectoryEntry *DirectoryEntry[];
 };
 
 struct BIGDirectoryEntry
 {
-    uint32_t FileOffset;
-    uint32_t FileLength;
-    char *FilePath;
+	uint32_t FileOffset;
+	uint32_t FileLength;
+	char *FilePath;
 };
 
 // util.c
