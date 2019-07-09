@@ -4,15 +4,11 @@ This is a small, relatively platform independent commandline tool to pack and un
 
 The goal was to create a tool that can be used in batch scripts, to fasten the workflow of packing modded files.
 
-No external files or libraries beyond gcc via MINGW in MSYS2, or just a normal linux, are required to compile or run this tool (tested with gcc 7.3.0).
+No external files or libraries beyond gcc via MINGW in MSYS2, or just a normal linux, are required to compile or run this tool.
 
 ## usage
 
 The usage is simple:
-
-    big4f l bigfile.big
-
-lists the contents of `bigfile.big`.
 
     big4f x bigfile.big outdir
 
@@ -38,13 +34,13 @@ Windows users can download the latest version from the releases page:
 
 The Windows version was compiled with:
 
-    gcc -O2 -s -static -o big4f.exe main.c bigfile.c util.c
+    gcc -O3 -s -static -o big4f.exe main.c bigfile.c util.c
 
 Linux users can just compile it themselves with:
 
-    gcc -O2 -s -o big4f main.c bigfile.c util.c
+    gcc -O3 -s -o big4f main.c bigfile.c util.c
 
-Please let me know if there are any problems doing this. I've used gcc 7.3.0 to compile it.
+Please let me know if there are any problems doing this.
 
 ## thanks
 

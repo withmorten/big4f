@@ -1,7 +1,6 @@
 #include "big4f.h"
 
-void
-printf_help_exit(void)
+void printf_help_exit(void)
 {
 	printf("big4f v%i.%i by withmorten\n\n", BIG4F_VERSION_MAJOR, BIG4F_VERSION_MINOR);
 	printf("big4f supports the following arguments:\n\n");
@@ -13,19 +12,17 @@ printf_help_exit(void)
 	exit(1);
 }
 
-void
-printf_error_exit(char *message, char *filename)
+void printf_error_exit(char *message, char *filename)
 {
 	printf("Error: %s%s\n", message, filename);
 	exit(1);
 }
 
-FILE *
-fopen_d(char *path, const char *mode)
+FILE *fopen_d(char *path, const char *mode)
 {
 	FILE *f = fopen(path, mode);
 
-	if(f == NULL)
+	if (f == NULL)
 	{
 		printf("Error: couldn't fopen() file %s, exiting\n", systemify_path(path));
 		exit(1);
@@ -34,8 +31,7 @@ fopen_d(char *path, const char *mode)
 	return f;
 }
 
-FILE *
-fopen_r(char *filepath)
+FILE *fopen_r(char *filepath)
 {
 	FILE *f;
 	char *path;
@@ -51,8 +47,7 @@ fopen_r(char *filepath)
 	return f;
 }
 
-int
-fsize(FILE *stream)
+uint32_t fsize(FILE *stream)
 {
 	int fpos, fsize;
 
@@ -64,12 +59,29 @@ fsize(FILE *stream)
 	return fsize;
 }
 
-void *
-malloc_d(size_t size)
+#ifdef _WIN32
+uint64_t ft2int64(FILETIME *ft)
+{
+	ULARGE_INTEGER lv_large;
+
+	lv_large.LowPart = ft->dwLowDateTime;
+	lv_large.HighPart = ft->dwHighDateTime;
+
+	return lv_large.QuadPart;
+}
+
+void int642ft(FILETIME *ft, uint64_t i64)
+{
+	ft->dwLowDateTime = LODWORD(i64);
+	ft->dwHighDateTime = HIDWORD(i64);
+}
+#endif
+
+void *malloc_d(size_t size)
 {
 	void *m = malloc(size);
 
-	if(m == NULL && size != 0)
+	if (m == NULL && size != 0)
 	{
 		printf("Error: couldn't malloc() %i bytes of memory, exiting\n", (int)size);
 		exit(1);
@@ -78,12 +90,11 @@ malloc_d(size_t size)
 	return m;
 }
 
-void *
-calloc_d(size_t nitems, size_t size)
+void *calloc_d(size_t nitems, size_t size)
 {
 	void *m = calloc(nitems, size);
 
-	if(m == NULL && size != 0)
+	if (m == NULL && size != 0)
 	{
 		printf("Error: couldn't calloc() %i bytes of memory, exiting\n", (int)size);
 		exit(1);
@@ -92,12 +103,11 @@ calloc_d(size_t nitems, size_t size)
 	return m;
 }
 
-void *
-realloc_d(void *ptr, size_t size)
+void *realloc_d(void *ptr, size_t size)
 {
 	void *m = realloc(ptr, size);
 
-	if(m == NULL && size != 0)
+	if (m == NULL && size != 0)
 	{
 		printf("Error: couldn't realloc() %i bytes of memory, exiting\n", (int)size);
 		exit(1);
@@ -106,18 +116,16 @@ realloc_d(void *ptr, size_t size)
 	return m;
 }
 
-char *
-strndup(const char *str, size_t size)
+char *strndup(const char *str, size_t size)
 {
 	char *dup = calloc_d(1, size + 1);
 
 	return memcpy(dup, str, size);
 }
 
-char *
-strncpy_d(char *dest, const char *src, size_t n)
+char *strncpy_d(char *dest, const char *src, size_t n)
 {
-	if(strlen(src) + 1 > n)
+	if (strlen(src) + 1 > n)
 	{
 		printf("Error: String too long: %s\n", src);
 		exit(1);
@@ -126,16 +134,15 @@ strncpy_d(char *dest, const char *src, size_t n)
 	return strncpy(dest, src, n);
 }
 
-char *
-fgets_c(char *str, int n, FILE *stream)
+char *fgets_c(char *str, int n, FILE *stream)
 {
 	int c;
 
-	for(n--; n > 0; n--)
+	for (n--; n > 0; n--)
 	{
 		c = fgetc(stream);
 
-		if(c == EOF)
+		if (c == EOF)
 		{
 			*(str++) = '\0';
 			break;
@@ -143,13 +150,13 @@ fgets_c(char *str, int n, FILE *stream)
 
 		*(str++) = (char)c;
 
-		if(n == 1)
+		if (n == 1)
 		{
 			*str = '\0';
 			printf("Warning: Following filename too long, truncating.\n");
 		}
 
-		if(c == '\0')
+		if (c == '\0')
 		{
 			break;
 		}
@@ -158,20 +165,19 @@ fgets_c(char *str, int n, FILE *stream)
 	return str;
 }
 
-char *
-unixify_path(char *path)
+char *unixify_path(char *path)
 {
 	char *p;
 
-	for(p = path; *p; p++)
+	for (p = path; *p; p++)
 	{
-		if(*p == '\\')
+		if (*p == '\\')
 		{
 			*p = '/';
 		}
 	}
 
-	if(path[strlen(path) - 1] == '/')
+	if (path[strlen(path) - 1] == '/')
 	{
 		path[strlen(path) - 1] = '\0';
 	}
@@ -179,20 +185,19 @@ unixify_path(char *path)
 	return path;
 }
 
-char *
-windowsify_path(char *path)
+char *windowsify_path(char *path)
 {
 	char *p;
 
-	for(p = path; *p; p++)
+	for (p = path; *p; p++)
 	{
-		if(*p == '/')
+		if (*p == '/')
 		{
 			*p = '\\';
 		}
 	}
 
-	if(path[strlen(path) - 1] == '\\')
+	if (path[strlen(path) - 1] == '\\')
 	{
 		path[strlen(path) - 1] = '\0';
 	}
@@ -200,8 +205,7 @@ windowsify_path(char *path)
 	return path;
 }
 
-char *
-systemify_path(char *path)
+char *systemify_path(char *path)
 {
 #ifdef _WIN32
 	return windowsify_path(path);
@@ -210,8 +214,7 @@ systemify_path(char *path)
 #endif
 }
 
-int
-mkdir_w(const char *path)
+int mkdir_w(const char *path)
 {
 #ifdef _WIN32
 	return _mkdir(path);
@@ -220,8 +223,7 @@ mkdir_w(const char *path)
 #endif
 }
 
-int
-mkdir_p(const char *path)
+int mkdir_p(const char *path)
 {
 	// Adapted from https://gist.github.com/JonathonReinhart/8c0d90191c38af2dcadb102c4e202950
 	// Adapted from https://stackoverflow.com/a/2336245/119527
@@ -231,26 +233,27 @@ mkdir_p(const char *path)
 
 	errno = 0;
 
-	if(strlen(path) + 1 > PATH_MAX_WIN)
+	if (strlen(path) + 1 > PATH_MAX_WIN)
 	{
 		errno = ENAMETOOLONG;
 		return -1;
 	}
+
 	// Copy string so its mutable
 	strcpy(_path, unixify_path((char *)path));
 
 	// Iterate the string
-	for(p = _path + 1; *p; p++)
+	for (p = _path + 1; *p; p++)
 	{
-		if(*p == '/')
+		if (*p == '/')
 		{
 			// Temporarily truncate
 			*p = '\0';
 
-			if(mkdir_w(_path) != 0)
+			if (mkdir_w(_path) != 0)
 			{
 				// Don't throw error if it's a drive
-				if(errno != EEXIST && (errno == EACCES && !strchr(_path, ':')))
+				if (errno != EEXIST && (errno == EACCES && !strchr(_path, ':')))
 				{
 					return -1;
 				}
@@ -260,8 +263,9 @@ mkdir_p(const char *path)
 		}
 	}
 
-	if(mkdir_w(_path) != 0) {
-		if(errno != EEXIST)
+	if (mkdir_w(_path) != 0)
+	{
+		if (errno != EEXIST)
 		{
 			return -1;
 		}
@@ -270,10 +274,9 @@ mkdir_p(const char *path)
 	return 0;
 }
 
-void
-mkdir_d(char *path)
+void mkdir_d(char *path)
 {
-	if(mkdir_p(path))
+	if (mkdir_p(path))
 	{
 		printf("Error: Couldn't create directory %s, exiting\n", systemify_path(path));
 		exit(1);

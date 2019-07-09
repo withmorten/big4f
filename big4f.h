@@ -9,6 +9,9 @@
 #include <direct.h>
 #include <fileapi.h>
 #include <handleapi.h>
+
+#define LODWORD(l) ((DWORD)((DWORDLONG)(l)))
+#define HIDWORD(l) ((DWORD)(((DWORDLONG)(l)>>32)&0xFFFFFFFF))
 #else
 #include <limits.h>
 #include <sys/stat.h>
@@ -18,13 +21,17 @@
 #define PATH_MAX_WIN 260
 
 #define BIG4F_VERSION_MAJOR 0
-#define BIG4F_VERSION_MINOR 3
+#define BIG4F_VERSION_MINOR 4
 
-#define BIGF_MAGIC 0x42494746
-#define BIG4_MAGIC 0x42494734
+#define BIGF_MAGIC 0x42494746 // BIGF
+#define BIG4_MAGIC 0x42494734 // BIG4
+
+#define BIG4F_MAGIC 0x4249473446302E34 // BIG4F0.4
 
 typedef struct BIGHeader BIGHeader;
 typedef struct BIGDirectoryEntry BIGDirectoryEntry;
+typedef struct BIG4FFileEntry BIG4FFileEntry;
+typedef struct BIG4FHeader BIG4FHeader;
 
 // From http://wiki.xentax.com/index.php/EA_BIG_BIGF_Archive
 // and http://wiki.xentax.com/index.php/EA_VIV_BIG4
@@ -36,7 +43,7 @@ struct BIGHeader
 	uint32_t MagicHeader;
 	uint32_t ArchiveSize;
 	uint32_t NumFiles;
-	uint32_t HeaderEnd;
+	uint32_t HeaderSize; // FirstFileOffset
 	BIGDirectoryEntry *DirectoryEntry[];
 };
 
@@ -47,12 +54,30 @@ struct BIGDirectoryEntry
 	char *FilePath;
 };
 
+// extensions for 0.4
+
+struct BIG4FHeader
+{
+	uint64_t BIG4FId;
+};
+
+struct BIG4FFileEntry
+{
+	int64_t DateCreated;
+	int64_t DateAccessed;
+	int64_t DateModified;
+};
+
 // util.c
 void printf_help_exit(void);
 void printf_error_exit(char *message, char *filename);
 FILE *fopen_d(char *path, const char *mode);
 FILE *fopen_r(char *fullpath);
-int fsize(FILE *stream);
+uint32_t fsize(FILE *stream);
+#ifdef _WIN32
+int64_t ft2int64(FILETIME *ft);
+void int642ft(FILETIME *ft, int64_t i64);
+#endif
 void *malloc_d(size_t size);
 void *calloc_d(size_t nitems, size_t size);
 void *realloc_d(void *ptr, size_t size);
@@ -73,4 +98,4 @@ BIGHeader *BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *Inpu
 
 void BIGFile_List(char *BIGFile_Path);
 void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath);
-BIGHeader *BIGFileHeader_Parse(FILE *BIGFile_Handle);
+BIGHeader *BIGFileHeader_Parse(char *BIGFile_Path, FILE *BIGFile_Handle);

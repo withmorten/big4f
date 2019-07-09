@@ -1,23 +1,22 @@
 #include "big4f.h"
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	// Check for first arg
-	if(argc < 2)
+	if (argc < 2)
 	{
 		printf_help_exit();
 	}
 
 	// Needs to be just one char
-	if(strlen(argv[1]) != 1)
+	if (strlen(argv[1]) != 1)
 	{
 		printf_help_exit();
 	}
 
 	printf("\n");
 
-	switch(argv[1][0])
+	switch (argv[1][0])
 	{
 	case 'l':
 		// Not enough args
