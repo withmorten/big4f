@@ -38,7 +38,7 @@ The Windows version was compiled with:
 
 Linux users can just compile it themselves with:
 
-    gcc -O3 -s -o big4f main.c bigfile.c util.c
+    gcc -O3 -static -s -o big4f main.c bigfile.c util.c
 
 Please let me know if there are any problems doing this.
 
