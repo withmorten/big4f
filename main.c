@@ -5,13 +5,13 @@ int main(int argc, char *argv[])
 	// Check for first arg
 	if (argc < 2)
 	{
-		printf_help_exit();
+		printf_help_exit(0);
 	}
 
 	// Needs to be just one char
-	if (strlen(argv[1]) != 1)
+	if (argv[1][1])
 	{
-		printf_help_exit();
+		printf_help_exit(1);
 	}
 
 	printf("\n");
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 		// Not enough args
 		if(argc < 3)
 		{
-			printf_help_exit();
+			printf_help_exit(1);
 		}
 
 		// Exits on failure
@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 		// Not enough args
 		if(argc < 4)
 		{
-			printf_help_exit();
+			printf_help_exit(1);
 		}
 
 		// Exits on failure
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 		// Not enough args
 		if(argc < 4)
 		{
-			printf_help_exit();
+			printf_help_exit(1);
 		}
 
 		// Exits on failure
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 		printf("\nSuccessfully packed %s\n", argv[3]);
 		break;
 	default:
-		printf_help_exit();
+		printf_help_exit(1);
 		break;
 	}
 

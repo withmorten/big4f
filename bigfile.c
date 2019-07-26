@@ -9,12 +9,11 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 	BIG4FFileEntry *BIG4F_FileEntry = NULL;
 	char InputFile_Path[PATH_MAX_WIN];
 	void *InputFile_Buffer = NULL;
-	int i;
-	int BIGFile_Header_LastPos;
-	int BIGFile_Header_AllocSize = 10000;
+	uint32_t BIGFile_Header_LastPos;
+	uint32_t BIGFile_Header_AllocSize = 10000;
 
 	// Initial malloc for header
-	BIGFile_Header = malloc_d(sizeof(BIGHeader) + (BIGFile_Header_AllocSize * sizeof(BIGDirectoryEntry *)));
+	BIGFile_Header = malloc_d(sizeof(BIGHeader));
 
 	// Get format and set MagicHeader, byteswap because these values need to be BE
 	if (BIGFormat == 'f')
@@ -27,14 +26,16 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 	}
 
 	// Temporary values, will be filled in BIGFileHeader_Create() and finalised after
-	BIGFile_Header->HeaderSize = sizeof(BIGHeader);
+	BIGFile_Header->HeaderSize = sizeof(BIGHeader) - sizeof(BIGDirectoryEntry *);
 	BIGFile_Header->ArchiveSize = 0;
 	BIGFile_Header->NumFiles = 0;
+
+	// Initial malloc for Directory
+	BIGFile_Header->Directory = malloc_d(sizeof(BIGDirectoryEntry) * BIGFile_Header_AllocSize);
 
 	// Get DirectoryEntries + some initial Header data
 	BIGFile_Header = BIGFileHeader_Create(BIGFile_Header, InputDir, InputDir, BIGFile_Header_AllocSize);
 
-#ifdef _WIN32
 	// Custom header info for 0.4
 	BIG4F_Header = malloc_d(sizeof(BIG4FHeader));
 	BIG4F_FileEntry = malloc_d(sizeof(BIG4FFileEntry));
@@ -43,7 +44,6 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 	BIG4F_Header->BIG4FId = __builtin_bswap64(BIG4F_MAGIC);
 
 	BIGFile_Header->ArchiveSize += BIGFile_Header->NumFiles * sizeof(BIG4FFileEntry);
-#endif
 
 	if (BIGFile_Header->NumFiles == 0)
 	{
@@ -59,12 +59,14 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 	ftruncate(fileno(BIGFile_Handle), BIGFile_Header->ArchiveSize);
 
 	// Set initial LastPos for first DirEntry offset
-	BIGFile_Header_LastPos = sizeof(BIGHeader);
+	BIGFile_Header_LastPos = sizeof(BIGHeader) - sizeof(BIGDirectoryEntry *);
+
+	file_time_info ti;
 
 	// Loop through all DirEntries, read and write files into BIGFile, write Header
-	for (i = 0; i < BIGFile_Header->NumFiles; i++)
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
 	{
-		DirectoryEntry = BIGFile_Header->DirectoryEntry[i];
+		DirectoryEntry = &BIGFile_Header->Directory[i];
 
 		// Restore full InputFile Path after being trimmed in SetHeader()
 		snprintf(InputFile_Path, PATH_MAX_WIN, "%s/%s", InputDir, DirectoryEntry->FilePath);
@@ -72,20 +74,16 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 		// Finalise relative offset
 		DirectoryEntry->FileOffset += BIGFile_Header->HeaderSize;
 
-#ifdef _WIN32
 		// Write custom 0.4 header
-		WIN32_FILE_ATTRIBUTE_DATA FileInfo;
-		GetFileAttributesEx(InputFile_Path, GetFileExInfoStandard, &FileInfo);
+		get_file_time_info(&ti, InputFile_Path);
 
-		BIG4F_FileEntry->DateCreated = ft2int64(&FileInfo.ftCreationTime);
-		BIG4F_FileEntry->DateAccessed = ft2int64(&FileInfo.ftLastAccessTime);
-		BIG4F_FileEntry->DateModified = ft2int64(&FileInfo.ftLastWriteTime);
+		BIG4F_FileEntry->DateAccessed = ti.atime;
+		BIG4F_FileEntry->DateModified = ti.mtime;
 
 		fseek(BIGFile_Handle, DirectoryEntry->FileOffset - sizeof(BIG4FFileEntry), SEEK_SET);
-		fwrite(&BIG4F_FileEntry->DateCreated, sizeof(BIG4F_FileEntry->DateCreated), 1, BIGFile_Handle);
+
 		fwrite(&BIG4F_FileEntry->DateAccessed, sizeof(BIG4F_FileEntry->DateAccessed), 1, BIGFile_Handle);
 		fwrite(&BIG4F_FileEntry->DateModified, sizeof(BIG4F_FileEntry->DateModified), 1, BIGFile_Handle);
-#endif
 
 		InputFile_Handle = fopen_d(unixify_path(InputFile_Path), "rb");
 
@@ -114,15 +112,13 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 		printf("%s\n", DirectoryEntry->FilePath);
 	}
 
-#ifdef _WIN32
 	// Write custom header info for 0.4
 	fseek(BIGFile_Handle, BIGFile_Header->HeaderSize - sizeof(BIG4FHeader), SEEK_SET);
 	fwrite(&BIG4F_Header->BIG4FId, sizeof(BIG4F_Header->BIG4FId), 1, BIGFile_Handle);
-#endif
 
 	// byteswap because these values need to be BE, fix abused HeaderSize (actually FirstFileOffset) to be FirstFileOffset
 	BIGFile_Header->NumFiles = __builtin_bswap32(BIGFile_Header->NumFiles);
-	BIGFile_Header->HeaderSize = BIGFile_Header->DirectoryEntry[0]->FileOffset;
+	BIGFile_Header->HeaderSize = BIGFile_Header->Directory[0].FileOffset;
 
 	// Write header at the end so we can work with unswapped values before
 	fseek(BIGFile_Handle, 0, SEEK_SET);
@@ -131,11 +127,25 @@ void BIGFile_Pack(char *InputDir, char *BIGFile_Path, char BIGFormat)
 	fwrite(&BIGFile_Header->NumFiles, sizeof(BIGFile_Header->NumFiles), 1, BIGFile_Handle);
 	fwrite(&BIGFile_Header->HeaderSize, sizeof(BIGFile_Header->HeaderSize), 1, BIGFile_Handle);
 
+	// Free stuff
+	BIGFile_Header->NumFiles = __builtin_bswap32(BIGFile_Header->NumFiles);
+
+	free(BIG4F_FileEntry);
+	free(BIG4F_Header);
+
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
+	{
+		free(BIGFile_Header->Directory[i].FilePath);
+	}
+
+	free(BIGFile_Header->Directory);
+	free(BIGFile_Header);
+
 	// Close BIGFile, done
 	fclose(BIGFile_Handle);
 }
 
-BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir, int AllocSize)
+BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char *SearchDir, uint32_t AllocSize)
 {
 #ifdef _WIN32
 	// Adapted from https://stackoverflow.com/a/2315808
@@ -162,6 +172,12 @@ BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char 
 		// Find first file will always return "." and ".." as the first two directories.
 		if (strcmp(fd.cFileName, ".") && strcmp(fd.cFileName, ".."))
 		{
+			// Special exception for deskopt.ini - if hidden
+			if (!strcmp(fd.cFileName, "desktop.ini") && fd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN)
+			{
+				continue;
+			}
+
 			// Build up our file path using the passed in SearchDir and the file/foldername we just found:
 			snprintf(SearchPath, PATH_MAX_WIN, "%s/%s", SearchDir, fd.cFileName);
 
@@ -177,7 +193,7 @@ BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char 
 				if (BIGFile_Header->NumFiles == AllocSize)
 				{
 					AllocSize *= 2;
-					BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (AllocSize * sizeof(BIGDirectoryEntry *)));
+					BIGFile_Header->Directory = realloc_d(BIGFile_Header->Directory, AllocSize * sizeof(BIGDirectoryEntry));
 				}
 
 				// Found a file, let's add it to the Directory entries
@@ -185,12 +201,12 @@ BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char 
 			}
 		}
 	}
-	while(FindNextFile(h, &fd));
+	while (FindNextFile(h, &fd));
 
 	FindClose(h);
 #else
-	FTS *fts;
-	FTSENT *ent;
+	FTS *fts = NULL;
+	FTSENT *ent = NULL;
 	char *fts_argv[] = { InputDir, NULL };
 
 	fts = fts_open((char * const *)fts_argv, FTS_PHYSICAL | FTS_NOCHDIR, NULL);
@@ -210,7 +226,7 @@ BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char 
 			if (BIGFile_Header->NumFiles == AllocSize)
 			{
 				AllocSize *= 2;
-				BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (AllocSize * sizeof(BIGDirectoryEntry *)));
+				BIGFile_Header->Directory = realloc_d(BIGFile_Header->Directory, AllocSize * sizeof(BIGDirectoryEntry));
 			}
 
 			// Found a file, let's add it to the Directory entries
@@ -226,44 +242,25 @@ BIGHeader *BIGFileHeader_Create(BIGHeader *BIGFile_Header, char *InputDir, char 
 
 BIGHeader *BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *InputDir, char *FullFilePath)
 {
-	BIGDirectoryEntry *DirectoryEntry = NULL;
-	int FilePath_Start, FilePath_Length;
+	uint32_t FilePath_Start, FilePath_Length;
 
-	DirectoryEntry = malloc_d(sizeof(BIGDirectoryEntry));
+	BIGDirectoryEntry *DirectoryEntry = &BIGFile_Header->Directory[BIGFile_Header->NumFiles];
 
-#ifdef _WIN32
-	WIN32_FILE_ATTRIBUTE_DATA FileInfo;
-	GetFileAttributesEx(FullFilePath, GetFileExInfoStandard, &FileInfo);
-
-	DirectoryEntry->FileLength = FileInfo.nFileSizeLow;
-#else
-	// Open found file to get filesize
-	FILE *f;
-	f = fopen_d(FullFilePath, "rb");
-	DirectoryEntry->FileLength = fsize(f);
-	fclose(f);
-#endif
+	DirectoryEntry->FileLength = fsize(FullFilePath);
 
 	// Temporary relative offset, will have to be adjusted after all files are known
 	if (BIGFile_Header->NumFiles == 0)
 	{
-#ifdef _WIN32
-		// DirectoryEntry->FileOffset = sizeof(BIG4FHeader);
 		DirectoryEntry->FileOffset = 0;
-#else
-		DirectoryEntry->FileOffset = 0;
-#endif
 	}
 	else
 	{
 		// Last FileLength + last FileOffset
-		DirectoryEntry->FileOffset = BIGFile_Header->DirectoryEntry[BIGFile_Header->NumFiles - 1]->FileLength
-										+ BIGFile_Header->DirectoryEntry[BIGFile_Header->NumFiles - 1]->FileOffset;
+		DirectoryEntry->FileOffset = BIGFile_Header->Directory[BIGFile_Header->NumFiles - 1].FileLength
+										+ BIGFile_Header->Directory[BIGFile_Header->NumFiles - 1].FileOffset;
 	}
 
-#ifdef _WIN32
 	DirectoryEntry->FileOffset += sizeof(BIG4FFileEntry);
-#endif
 
 	// Trim the InputDir from the FilePath
 	FilePath_Start = strlen(InputDir) + 1;
@@ -278,8 +275,6 @@ BIGHeader *BIGFileHeader_AddDirectoryEntry(BIGHeader *BIGFile_Header, char *Inpu
 	// Build up ArchiveSize from FileSizes, FirstFileOffset will be added at the end
 	BIGFile_Header->ArchiveSize += DirectoryEntry->FileLength;
 
-	// Add current DirectoryEntry to the Header DirEntry list
-	BIGFile_Header->DirectoryEntry[BIGFile_Header->NumFiles] = DirectoryEntry;
 	BIGFile_Header->NumFiles++;
 
 	return BIGFile_Header;
@@ -289,7 +284,6 @@ void BIGFile_List(char *BIGFile_Path)
 {
 	FILE *BIGFile_Handle;
 	BIGHeader *BIGFile_Header = NULL;
-	int i;
 
 	// Open BIGFile
 	BIGFile_Handle = fopen_d(BIGFile_Path, "rb");
@@ -298,10 +292,19 @@ void BIGFile_List(char *BIGFile_Path)
 	BIGFile_Header = BIGFileHeader_Parse(BIGFile_Path, BIGFile_Handle);
 
 	// Loop through DirEntry list and list files
-	for (i = 0; i < BIGFile_Header->NumFiles; i++)
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
 	{
-		printf("%s\n", BIGFile_Header->DirectoryEntry[i]->FilePath);
+		printf("%s\n", BIGFile_Header->Directory[i].FilePath);
 	}
+
+	// Free stuff
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
+	{
+		free(BIGFile_Header->Directory[i].FilePath);
+	}
+
+	free(BIGFile_Header->Directory);
+	free(BIGFile_Header);
 
 	// Close BIGFile, done
 	fclose(BIGFile_Handle);
@@ -316,7 +319,6 @@ void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
 	BIG4FFileEntry *BIG4F_FileEntry = NULL;
 	void *BIGFile_Buffer = NULL;
 	char ExtractPath_Actual[PATH_MAX_WIN];
-	int i;
 
 	// Open BIGFile
 	BIGFile_Handle = fopen_d(BIGFile_Path, "rb");
@@ -324,9 +326,7 @@ void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
 	// Get full Header from BIG file
 	BIGFile_Header = BIGFileHeader_Parse(BIGFile_Path, BIGFile_Handle);
 
-#ifdef _WIN32
-	FILETIME ftCreationTime, ftLastAccessTime, ftLastWriteTime;
-	WIN32_FILE_ATTRIBUTE_DATA FileInfo;
+	file_time_info ti;
 
 	BIG4F_FileEntry = malloc_d(sizeof(BIG4FFileEntry));
 
@@ -344,20 +344,16 @@ void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
 	{
 		BIG4F_Header->BIG4FId = 0;
 
-		GetFileAttributesEx(BIGFile_Path, GetFileExInfoStandard, &FileInfo);
-
-		ftCreationTime = FileInfo.ftCreationTime;
-		ftLastAccessTime = FileInfo.ftLastAccessTime;
-		ftLastWriteTime = FileInfo.ftLastWriteTime;
+		// If custom header doesn't exist, use the times from the big file
+		get_file_time_info(&ti, BIGFile_Path);
 	}
-#endif
 
 	mkdir_d(ExtractPath);
 
 	// Loop through DirEntry list and extract files
-	for (i = 0; i < BIGFile_Header->NumFiles; i++)
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
 	{
-		DirectoryEntry = BIGFile_Header->DirectoryEntry[i];
+		DirectoryEntry = &BIGFile_Header->Directory[i];
 
 		// Get full extraction path
 		snprintf(ExtractPath_Actual, PATH_MAX_WIN, "%s/%s", ExtractPath, DirectoryEntry->FilePath);
@@ -376,36 +372,33 @@ void BIGFile_Extract(char *BIGFile_Path, char *ExtractPath)
 		free(BIGFile_Buffer);
 		fclose(ExtractFile_Handle);
 
-#ifdef _WIN32
-		HANDLE ExtractFile_WIN32Handle;
-
-		ExtractFile_WIN32Handle = CreateFile(ExtractPath_Actual, FILE_WRITE_ATTRIBUTES, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
-		if (!ExtractFile_WIN32Handle)
-		{
-			printf_error_exit("Could not open previously created file for setting time attributes: ", ExtractPath_Actual);
-		}
-
 		if (BIG4F_Header->BIG4FId)
 		{
 			fseek(BIGFile_Handle, DirectoryEntry->FileOffset - sizeof(BIG4FFileEntry), SEEK_SET);
 
-			fread(&BIG4F_FileEntry->DateCreated, sizeof(BIG4F_FileEntry->DateCreated), 1, BIGFile_Handle);
 			fread(&BIG4F_FileEntry->DateAccessed, sizeof(BIG4F_FileEntry->DateAccessed), 1, BIGFile_Handle);
 			fread(&BIG4F_FileEntry->DateModified, sizeof(BIG4F_FileEntry->DateModified), 1, BIGFile_Handle);
 
-			int642ft(&ftCreationTime, BIG4F_FileEntry->DateCreated);
-			int642ft(&ftLastAccessTime, BIG4F_FileEntry->DateAccessed);
-			int642ft(&ftLastWriteTime, BIG4F_FileEntry->DateModified);
+			ti.atime = BIG4F_FileEntry->DateAccessed;
+			ti.mtime = BIG4F_FileEntry->DateModified;
 		}
 
-		SetFileTime(ExtractFile_WIN32Handle, &ftCreationTime, &ftLastAccessTime, &ftLastWriteTime);
-
-		CloseHandle(ExtractFile_WIN32Handle);
-#endif
+		set_file_time_info(&ti, ExtractPath_Actual);
 
 		printf("%s\n", DirectoryEntry->FilePath);
 	}
+
+	// Free stuff
+	free(BIG4F_FileEntry);
+	free(BIG4F_Header);
+
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
+	{
+		free(BIGFile_Header->Directory[i].FilePath);
+	}
+
+	free(BIGFile_Header->Directory);
+	free(BIGFile_Header);
 
 	// Close BIGFile, done
 	fclose(BIGFile_Handle);
@@ -416,22 +409,14 @@ BIGHeader *BIGFileHeader_Parse(char *BIGFile_Path, FILE *BIGFile_Handle)
 	BIGHeader *BIGFile_Header = NULL;
 	BIGDirectoryEntry *DirectoryEntry = NULL;
 	char FilePath_Buffer[PATH_MAX_WIN];
-	int FilePath_Start, FilePath_Length;
+	uint32_t FilePath_Start, FilePath_Length;
 	uint32_t BIGFile_Size;
-	int i;
 
 	// Initial Header malloc
 	BIGFile_Header = malloc_d(sizeof(BIGHeader));
 
 	// Get Size
-#ifdef _WIN32
-	WIN32_FILE_ATTRIBUTE_DATA FileInfo;
-	GetFileAttributesEx(BIGFile_Path, GetFileExInfoStandard, &FileInfo);
-
-	BIGFile_Size = FileInfo.nFileSizeLow;
-#else
-	BIGFile_Size = fsize(BIGFile_Handle);
-#endif
+	BIGFile_Size = fsize(BIGFile_Path);
 
 	// Read Header struct from BIGFile
 	fread(&BIGFile_Header->MagicHeader, sizeof(BIGFile_Header->MagicHeader), 1, BIGFile_Handle);
@@ -469,12 +454,12 @@ BIGHeader *BIGFileHeader_Parse(char *BIGFile_Path, FILE *BIGFile_Handle)
 	BIGFile_Header->HeaderSize = __builtin_bswap32(BIGFile_Header->HeaderSize);
 
 	// realloc enough memory for all DirectoryEntries
-	BIGFile_Header = realloc_d(BIGFile_Header, sizeof(BIGHeader) + (BIGFile_Header->NumFiles * sizeof(BIGDirectoryEntry *)));
+	BIGFile_Header->Directory = malloc_d(BIGFile_Header->NumFiles * sizeof(BIGDirectoryEntry));
 
 	// loop through DirEntry list in header and get data
-	for (i = 0; i < BIGFile_Header->NumFiles; i++)
+	for (uint32_t i = 0; i < BIGFile_Header->NumFiles; i++)
 	{
-		DirectoryEntry = malloc_d(sizeof(BIGDirectoryEntry));
+		DirectoryEntry = &BIGFile_Header->Directory[i];
 
 		// Read DirEntry struct minus FilePath
 		fread(&DirectoryEntry->FileOffset, sizeof(DirectoryEntry->FileOffset), 1, BIGFile_Handle);
@@ -491,8 +476,6 @@ BIGHeader *BIGFileHeader_Parse(char *BIGFile_Path, FILE *BIGFile_Handle)
 
 		DirectoryEntry->FilePath = malloc_d(FilePath_Length);
 		strncpy_d(DirectoryEntry->FilePath, FilePath_Buffer, FilePath_Length);
-
-		BIGFile_Header->DirectoryEntry[i] = DirectoryEntry;
 	}
 
 	return BIGFile_Header;

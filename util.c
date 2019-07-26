@@ -1,6 +1,6 @@
 #include "big4f.h"
 
-void printf_help_exit(void)
+void printf_help_exit(int exit_code)
 {
 	printf("big4f v%i.%i by withmorten\n\n", BIG4F_VERSION_MAJOR, BIG4F_VERSION_MINOR);
 	printf("big4f supports the following arguments:\n\n");
@@ -9,7 +9,7 @@ void printf_help_exit(void)
 	printf("big4f f/4 <directory> <big file> to pack a .big file\n\n");
 	printf("'f' will create a BIGF file, '4' a BIG4 file\n\n");
 	printf("big4f's source and readme are available at https://github.com/withmorten/big4f\n");
-	exit(1);
+	exit(exit_code);
 }
 
 void printf_error_exit(char *message, char *filename)
@@ -47,35 +47,34 @@ FILE *fopen_r(char *filepath)
 	return f;
 }
 
-uint32_t fsize(FILE *stream)
+uint32_t fsize(char *filepath)
 {
-	int fpos, fsize;
+	struct stat st;
 
-	fpos = ftell(stream);
-	fseek(stream, 0, SEEK_END);
-	fsize = ftell(stream);
-	fseek(stream, fpos, SEEK_SET);
+	stat(filepath, &st);
 
-	return fsize;
+	return (uint32_t)st.st_size;
 }
 
-#ifdef _WIN32
-uint64_t ft2int64(FILETIME *ft)
+void get_file_time_info(file_time_info *ti, char *filepath)
 {
-	ULARGE_INTEGER lv_large;
+	struct stat st;
 
-	lv_large.LowPart = ft->dwLowDateTime;
-	lv_large.HighPart = ft->dwHighDateTime;
+	stat(filepath, &st);
 
-	return lv_large.QuadPart;
+	ti->atime = st.st_atime;
+	ti->mtime = st.st_mtime;
 }
 
-void int642ft(FILETIME *ft, uint64_t i64)
+void set_file_time_info(file_time_info *ti, char *filepath)
 {
-	ft->dwLowDateTime = LODWORD(i64);
-	ft->dwHighDateTime = HIDWORD(i64);
+	struct utimbuf ut;
+
+	ut.actime = ti->atime;
+	ut.modtime = ti->mtime;
+
+	utime(filepath, &ut);
 }
-#endif
 
 void *malloc_d(size_t size)
 {
@@ -109,6 +108,7 @@ void *realloc_d(void *ptr, size_t size)
 
 	if (m == NULL && size != 0)
 	{
+		free(ptr);
 		printf("Error: couldn't realloc() %i bytes of memory, exiting\n", (int)size);
 		exit(1);
 	}
@@ -205,24 +205,6 @@ char *windowsify_path(char *path)
 	return path;
 }
 
-char *systemify_path(char *path)
-{
-#ifdef _WIN32
-	return windowsify_path(path);
-#else
-	return unixify_path(path);
-#endif
-}
-
-int mkdir_w(const char *path)
-{
-#ifdef _WIN32
-	return _mkdir(path);
-#else
-	return mkdir(path, S_IRWXU);
-#endif
-}
-
 int mkdir_p(const char *path)
 {
 	// Adapted from https://gist.github.com/JonathonReinhart/8c0d90191c38af2dcadb102c4e202950
@@ -250,7 +232,7 @@ int mkdir_p(const char *path)
 			// Temporarily truncate
 			*p = '\0';
 
-			if (mkdir_w(_path) != 0)
+			if (_mkdir(_path) != 0)
 			{
 				// Don't throw error if it's a drive
 				if (errno != EEXIST && (errno == EACCES && !strchr(_path, ':')))
@@ -263,7 +245,7 @@ int mkdir_p(const char *path)
 		}
 	}
 
-	if (mkdir_w(_path) != 0)
+	if (_mkdir(_path) != 0)
 	{
 		if (errno != EEXIST)
 		{
